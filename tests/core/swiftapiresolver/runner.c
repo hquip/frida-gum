@@ -26,7 +26,7 @@ init (void)
   g_assert_nonnull (resolver);
 
 #ifdef HAVE_DARWIN
-  gum_log = os_log_create ("re.frida.gum",
+  gum_log = os_log_create ("re.fs.gum",
       OS_LOG_CATEGORY_POINTS_OF_INTEREST);
 #endif
 }

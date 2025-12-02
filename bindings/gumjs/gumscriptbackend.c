@@ -1,15 +1,3 @@
-/*
- * Copyright (C) 2015-2022 Ole André Vadla Ravnås <oleavr@nowsecure.com>
- *
- * Licence: wxWindows Library Licence, Version 3.1
- */
-
-#include "gumscriptbackend.h"
-
-#include "gumquickscriptbackend.h"
-#include "gumv8scriptbackend.h"
-
-#include <gum/gum-init.h>
 #ifdef HAVE_SQLITE
 # include <sqlite3.h>
 #endif

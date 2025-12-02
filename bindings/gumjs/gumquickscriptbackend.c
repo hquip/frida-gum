@@ -1217,7 +1217,7 @@ gum_es_program_new (void)
     gchar * name;
     GumESAsset * asset;
 
-    name = g_strconcat ("/frida/runtime/", cur->name, NULL);
+    name = g_strconcat ("/bads/runtime/", cur->name, NULL);
     asset = gum_es_asset_new (name, cur->bytecode, cur->bytecode_size, NULL);
 
     if (program->runtime == NULL)
