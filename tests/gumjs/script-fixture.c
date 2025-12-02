@@ -754,7 +754,7 @@ test_script_fixture_make_tempfile_containing (TestScriptFixture * fixture,
   gint fd;
   FILE * file;
 
-  fd = g_file_open_tmp ("gum-tests.XXXXXX", &path, NULL);
+  fd = g_file_open_tmp ("fs-tests.XXXXXX", &path, NULL);
   g_assert_cmpint (fd, !=, -1);
 
 #ifdef _MSC_VER
