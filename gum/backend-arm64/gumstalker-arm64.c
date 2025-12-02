@@ -3270,27 +3270,6 @@ gum_exec_ctx_write_prolog_helper (GumExecCtx * ctx,
 {
   gint i;
 
-  /* X19 and LR have been pushed by our caller */
-
-  /*
-   * Our prolog and epilog code makes extensive use of the stack to store and
-   * restore registers. However, on AArch64, the stack pointer must be aligned
-   * to a 16-byte boundary when it is used to access memory. One anti-Frida
-   * technique observed in the wild has been to deliberately misalign the stack
-   * pointer to violate this assumption and cause Stalker to attempt to access
-   * data on a misaligned stack.
-   *
-   * In order to mitigate this, we use another register as a proxy for the stack
-   * pointer and use this to perform our loads and stores. Since the other
-   * registers have no alignment requirements this avoids the issue. We still
-   * have the issue that this proxy stack register needs to be saved somewhere
-   * so that it can be restored when control returns to the target. We therefore
-   * accept that this initial store must be carried out using the stack pointer
-   * and will therefore incur an exception.
-   *
-   * Accordingly, we install an exception handler to cope with these exceptions
-   * and this exception handler simply emulates the instruction in question.
-   * Since we have minimized the amount of misaligned stack usage, we only have
    * a handful of instructions which we need to emulate and these can therefore
    * be whitelisted.
    *
