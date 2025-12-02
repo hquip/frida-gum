@@ -654,7 +654,7 @@ _gum_v8_core_init (GumV8Core * self,
       );
   scope->SetHandler (global_access);
 
-  auto frida = _gum_v8_create_module ("Frida", scope, isolate);
+  auto frida = _gum_v8_create_module ("Fs", scope, isolate);
   _gum_v8_module_add (module, frida, gumjs_frida_values, isolate);
   frida->Set (_gum_v8_string_new_ascii (isolate, "version"),
       _gum_v8_string_new_ascii (isolate, FRIDA_VERSION), ReadOnly);
