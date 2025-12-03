@@ -2,6 +2,7 @@
 #include "gumquickscriptbackend.h"
 #include "gumv8scriptbackend.h"
 #include "gumscriptscheduler.h"
+#include "gum/gum-init.h"
 
 #ifdef HAVE_SQLITE
 # include <sqlite3.h>
