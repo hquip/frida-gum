@@ -2,7 +2,8 @@
 #include "gumquickscriptbackend.h"
 #include "gumv8scriptbackend.h"
 #include "gumscriptscheduler.h"
-#include "../../gum/gum-init.h"
+
+extern void _gum_register_early_destructor (void (* destructor) (void));
 
 #ifdef HAVE_SQLITE
 # include <sqlite3.h>
