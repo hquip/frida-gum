@@ -468,7 +468,7 @@ static const JSCFunctionListEntry gumjs_root_entries[] =
 static const JSCFunctionListEntry gumjs_bads_entries[] =
 {
   JS_PROP_STRING_DEF ("version", FRIDA_VERSION, JS_PROP_C_W_E),
-  JS_CGETSET_DEF ("heapSize", gumjs_bads_get_heap_size, NULL),
+  JS_CGETSET_DEF ("heapSize", gumjs_frida_get_heap_size, NULL),
 };
 
 static const JSCFunctionListEntry gumjs_script_entries[] =

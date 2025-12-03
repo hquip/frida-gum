@@ -616,9 +616,46 @@ GUMJS_DEFINE_FUNCTION (gumjs_interceptor_attach)
     listener_function_data = NULL;
   }
 
-  auto attach_ret = gum_interceptor_attach (module->interceptor, target,
-      GUM_INVOCATION_LISTENER (listener), listener_function_data,
-      GUM_ATTACH_FLAGS_NONE);
+  GumAttachReturn attach_ret;
+  GumInterceptorType type = GUM_INTERCEPTOR_TYPE_DEFAULT;
+
+  if (callback_val->IsObject () && !callback_val->IsFunction ())
+  {
+    auto context = isolate->GetCurrentContext ();
+    auto callbacks = callback_val.As<Object> ();
+    Local<Value> type_val;
+    if (callbacks->Get (context,
+          String::NewFromUtf8 (isolate, "type").ToLocalChecked ()).ToLocal (&type_val))
+    {
+      if (type_val->IsString ())
+      {
+        String::Utf8Value type_str (isolate, type_val);
+        if (strcmp (*type_str, "hardware") == 0)
+          type = GUM_INTERCEPTOR_TYPE_HARDWARE;
+        else if (strcmp (*type_str, "exception") == 0)
+          type = GUM_INTERCEPTOR_TYPE_EXCEPTION;
+      }
+    }
+  }
+
+  if (type == GUM_INTERCEPTOR_TYPE_HARDWARE)
+  {
+    attach_ret = gum_interceptor_attach_hardware (module->interceptor, target,
+        GUM_INVOCATION_LISTENER (listener), listener_function_data,
+        GUM_ATTACH_FLAGS_NONE);
+  }
+  else if (type == GUM_INTERCEPTOR_TYPE_EXCEPTION)
+  {
+    attach_ret = gum_interceptor_attach_exception (module->interceptor, target,
+        GUM_INVOCATION_LISTENER (listener), listener_function_data,
+        GUM_ATTACH_FLAGS_NONE);
+  }
+  else
+  {
+    attach_ret = gum_interceptor_attach (module->interceptor, target,
+        GUM_INVOCATION_LISTENER (listener), listener_function_data,
+        GUM_ATTACH_FLAGS_NONE);
+  }
 
   if (attach_ret == GUM_ATTACH_OK)
   {

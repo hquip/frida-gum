@@ -16,15 +16,10 @@
 #include "gumtls.h"
 
 typedef struct _GumInterceptorBackend GumInterceptorBackend;
-typedef guint8 GumInterceptorType;
 typedef struct _GumFunctionContext GumFunctionContext;
 typedef union _GumFunctionContextBackendData GumFunctionContextBackendData;
 
-enum _GumInterceptorType
-{
-  GUM_INTERCEPTOR_TYPE_DEFAULT = 0,
-  GUM_INTERCEPTOR_TYPE_FAST    = 1
-};
+
 
 union _GumFunctionContextBackendData
 {

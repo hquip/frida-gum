@@ -1,3 +1,8 @@
+#include "gumscriptbackend.h"
+#include "gumquickscriptbackend.h"
+#include "gumv8scriptbackend.h"
+#include "gumscriptscheduler.h"
+
 #ifdef HAVE_SQLITE
 # include <sqlite3.h>
 #endif

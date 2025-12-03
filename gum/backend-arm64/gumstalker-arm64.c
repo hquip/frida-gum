@@ -3270,6 +3270,7 @@ gum_exec_ctx_write_prolog_helper (GumExecCtx * ctx,
 {
   gint i;
 
+  /*
    * a handful of instructions which we need to emulate and these can therefore
    * be whitelisted.
    *
@@ -3727,12 +3728,12 @@ gum_exec_ctx_load_real_register_from_full_frame_into (GumExecCtx * ctx,
 
 /*
  * This exception handler deals with exceptions caused by attempts to access the
- * stack when it isn't 16-byte aligned. Anti-Frida techniques have been observed
+ * stack when it isn't 16-byte aligned. Anti-instrumentation techniques have been observed
  * in the wild where the stack is deliberately misaligned to cause Stalker to
  * crash when it executes. Since an exception is only thrown when an attempt is
- * made to load or store from a misaligned stack pointer, this anti-Frida code
+ * made to load or store from a misaligned stack pointer, this anti-instrumentation code
  * can misalign the stack and cause a branch without accessing stack data and
- * hence therefore force FRIDA to deal with a misaligned stack without
+ * hence therefore force the instrumentation to deal with a misaligned stack without
  * incurring any exceptions itself.
  *
  * We cope with this scenario by making use of a register to act as a proxy for

@@ -11,6 +11,7 @@
 
 #include "gumcodesegment.h"
 #include "guminterceptor-priv.h"
+#include <gum/gummemory.h>
 #include "gumlibc.h"
 #include "gummemory.h"
 #include "gummetalarray.h"
@@ -21,6 +22,7 @@
 #ifdef HAVE_DARWIN
 # include <mach/mach.h>
 #endif
+#include <gum/gummemory.h>
 
 #ifdef HAVE_MIPS
 # define GUM_INTERCEPTOR_CODE_SLICE_SIZE 1024
@@ -154,6 +156,10 @@ static void gum_interceptor_activate (GumInterceptor * self,
     GumFunctionContext * ctx, gpointer prologue);
 static void gum_interceptor_deactivate (GumInterceptor * self,
     GumFunctionContext * ctx, gpointer prologue);
+static gboolean gum_interceptor_enable_hw_bp_for_thread (
+    const GumThreadDetails * details, gpointer user_data);
+static gboolean gum_interceptor_disable_hw_bp_for_thread (
+    const GumThreadDetails * details, gpointer user_data);
 
 static void gum_interceptor_transaction_init (
     GumInterceptorTransaction * transaction, GumInterceptor * interceptor);
@@ -366,6 +372,136 @@ gum_interceptor_attach (GumInterceptor * self,
   function_address = gum_interceptor_resolve (self, function_address);
 
   function_ctx = gum_interceptor_instrument (self, GUM_INTERCEPTOR_TYPE_DEFAULT,
+      function_address, &error);
+
+  if (function_ctx == NULL)
+    goto instrumentation_error;
+
+  if (gum_function_context_has_listener (function_ctx, listener))
+    goto already_attached;
+
+  gum_function_context_add_listener (function_ctx, listener,
+      listener_function_data, (flags & GUM_ATTACH_FLAGS_UNIGNORABLE) != 0);
+
+  goto beach;
+
+instrumentation_error:
+  {
+    switch (error)
+    {
+      case GUM_INSTRUMENTATION_ERROR_WRONG_SIGNATURE:
+        result = GUM_ATTACH_WRONG_SIGNATURE;
+        break;
+      case GUM_INSTRUMENTATION_ERROR_POLICY_VIOLATION:
+        result = GUM_ATTACH_POLICY_VIOLATION;
+        break;
+      case GUM_INSTRUMENTATION_ERROR_WRONG_TYPE:
+        result = GUM_ATTACH_WRONG_TYPE;
+        break;
+      default:
+        g_assert_not_reached ();
+    }
+    goto beach;
+  }
+already_attached:
+  {
+    result = GUM_ATTACH_ALREADY_ATTACHED;
+    goto beach;
+  }
+beach:
+  {
+    gum_interceptor_transaction_end (&self->current_transaction);
+    GUM_INTERCEPTOR_UNLOCK (self);
+    gum_interceptor_unignore_current_thread (self);
+
+    return result;
+  }
+}
+
+GumAttachReturn
+gum_interceptor_attach_hardware (GumInterceptor * self,
+                                 gpointer function_address,
+                                 GumInvocationListener * listener,
+                                 gpointer listener_function_data,
+                                 GumAttachFlags flags)
+{
+  GumAttachReturn result = GUM_ATTACH_OK;
+  GumFunctionContext * function_ctx;
+  GumInstrumentationError error;
+
+  gum_interceptor_ignore_current_thread (self);
+  GUM_INTERCEPTOR_LOCK (self);
+  gum_interceptor_transaction_begin (&self->current_transaction);
+  self->current_transaction.is_dirty = TRUE;
+
+  function_address = gum_interceptor_resolve (self, function_address);
+
+  function_ctx = gum_interceptor_instrument (self, GUM_INTERCEPTOR_TYPE_HARDWARE,
+      function_address, &error);
+
+  if (function_ctx == NULL)
+    goto instrumentation_error;
+
+  if (gum_function_context_has_listener (function_ctx, listener))
+    goto already_attached;
+
+  gum_function_context_add_listener (function_ctx, listener,
+      listener_function_data, (flags & GUM_ATTACH_FLAGS_UNIGNORABLE) != 0);
+
+  goto beach;
+
+instrumentation_error:
+  {
+    switch (error)
+    {
+      case GUM_INSTRUMENTATION_ERROR_WRONG_SIGNATURE:
+        result = GUM_ATTACH_WRONG_SIGNATURE;
+        break;
+      case GUM_INSTRUMENTATION_ERROR_POLICY_VIOLATION:
+        result = GUM_ATTACH_POLICY_VIOLATION;
+        break;
+      case GUM_INSTRUMENTATION_ERROR_WRONG_TYPE:
+        result = GUM_ATTACH_WRONG_TYPE;
+        break;
+      default:
+        g_assert_not_reached ();
+    }
+    goto beach;
+  }
+already_attached:
+  {
+    result = GUM_ATTACH_ALREADY_ATTACHED;
+    goto beach;
+  }
+beach:
+  {
+    gum_interceptor_transaction_end (&self->current_transaction);
+    GUM_INTERCEPTOR_UNLOCK (self);
+    gum_interceptor_unignore_current_thread (self);
+
+    return result;
+  }
+}
+
+GumAttachReturn
+gum_interceptor_attach_exception (GumInterceptor * self,
+                                  gpointer function_address,
+                                  GumInvocationListener * listener,
+                                  gpointer listener_function_data,
+                                  GumAttachFlags flags)
+{
+  GumAttachReturn result = GUM_ATTACH_OK;
+  GumFunctionContext * function_ctx;
+  GumInstrumentationError error;
+
+  gum_interceptor_ignore_current_thread (self);
+  GUM_INTERCEPTOR_LOCK (self);
+  gum_interceptor_transaction_begin (&self->current_transaction);
+  self->current_transaction.is_dirty = TRUE;
+
+  function_address = gum_interceptor_resolve (self, function_address);
+
+  function_ctx = gum_interceptor_instrument (self, GUM_INTERCEPTOR_TYPE_EXCEPTION,
       function_address, &error);
 
   if (function_ctx == NULL)
@@ -843,33 +979,6 @@ gum_interceptor_instrument (GumInterceptor * self,
     self->backend =
         _gum_interceptor_backend_create (&self->mutex, &self->allocator);
   }
-
-  ctx = gum_function_context_new (self, function_address, type);
-
-  if (gum_process_get_code_signing_policy () == GUM_CODE_SIGNING_REQUIRED)
-  {
-    if (!_gum_interceptor_backend_claim_grafted_trampoline (self->backend, ctx))
-      goto policy_violation;
-  }
-  else
-  {
-    if (!_gum_interceptor_backend_create_trampoline (self->backend, ctx))
-      goto wrong_signature;
-  }
-
-  g_hash_table_insert (self->function_by_address, function_address, ctx);
-
-  gum_interceptor_transaction_schedule_update (&self->current_transaction, ctx,
-      gum_interceptor_activate);
-
-  return ctx;
-
-policy_violation:
-  {
-    *error = GUM_INSTRUMENTATION_ERROR_POLICY_VIOLATION;
-    goto propagate_error;
-  }
-wrong_signature:
   {
     *error = GUM_INSTRUMENTATION_ERROR_WRONG_SIGNATURE;
     goto propagate_error;
@@ -893,8 +1002,20 @@ gum_interceptor_activate (GumInterceptor * self,
   g_assert (!ctx->activated);
   ctx->activated = TRUE;
 
-  _gum_interceptor_backend_activate_trampoline (self->backend, ctx,
-      prologue);
+  if (ctx->type == GUM_INTERCEPTOR_TYPE_HARDWARE)
+  {
+    gum_process_enumerate_threads (gum_interceptor_enable_hw_bp_for_thread,
+        ctx, GUM_THREAD_FLAGS_NONE);
+  }
+  else if (ctx->type == GUM_INTERCEPTOR_TYPE_EXCEPTION)
+  {
+    gum_mprotect (ctx->function_address, 4096, GUM_PAGE_NO_ACCESS);
+  }
+  else
+  {
+    _gum_interceptor_backend_activate_trampoline (self->backend, ctx,
+        prologue);
+  }
 }
 
 static void
@@ -907,7 +1028,37 @@ gum_interceptor_deactivate (GumInterceptor * self,
   g_assert (ctx->activated);
   ctx->activated = FALSE;
 
-  _gum_interceptor_backend_deactivate_trampoline (backend, ctx, prologue);
+  if (ctx->type == GUM_INTERCEPTOR_TYPE_HARDWARE)
+  {
+    gum_process_enumerate_threads (gum_interceptor_disable_hw_bp_for_thread,
+        ctx, GUM_THREAD_FLAGS_NONE);
+  }
+  else if (ctx->type == GUM_INTERCEPTOR_TYPE_EXCEPTION)
+  {
+    gum_mprotect (ctx->function_address, 4096, GUM_PAGE_RWX);
+  }
+  else
+  {
+    _gum_interceptor_backend_deactivate_trampoline (backend, ctx, prologue);
+  }
+}
+
+static gboolean
+gum_interceptor_enable_hw_bp_for_thread (const GumThreadDetails * details,
+                                         gpointer user_data)
+{
+  GumFunctionContext * ctx = user_data;
+  gum_thread_set_hardware_breakpoint (details->id, 0,
+      GUM_ADDRESS (ctx->function_address), NULL);
+  return TRUE;
+}
+
+static gboolean
+gum_interceptor_disable_hw_bp_for_thread (const GumThreadDetails * details,
+                                          gpointer user_data)
+{
+  gum_thread_unset_hardware_breakpoint (details->id, 0, NULL);
+  return TRUE;
 }
 
 static void
@@ -1633,12 +1784,7 @@ gum_interceptor_invocation_get_listener_point_cut (
   return ((ListenerInvocationState *) context->backend->data)->point_cut;
 }
 
-static GumPointCut
-gum_interceptor_invocation_get_replacement_point_cut (
-    GumInvocationContext * context)
-{
-  return GUM_POINT_ENTER;
-}
+
 
 static GumThreadId
 gum_interceptor_invocation_get_thread_id (GumInvocationContext * context)
@@ -1713,6 +1859,13 @@ gum_interceptor_listener_invocation_backend =
   NULL,
   NULL
 };
+
+static GumPointCut
+gum_interceptor_invocation_get_replacement_point_cut (
+    GumInvocationContext * context)
+{
+  return GUM_POINT_ENTER;
+}
 
 static const GumInvocationBackend
 gum_interceptor_replacement_invocation_backend =

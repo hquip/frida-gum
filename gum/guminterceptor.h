@@ -48,6 +48,14 @@ typedef enum
   GUM_REPLACE_WRONG_TYPE       = -4,
 } GumReplaceReturn;
 
+typedef enum
+{
+  GUM_INTERCEPTOR_TYPE_DEFAULT = 0,
+  GUM_INTERCEPTOR_TYPE_FAST    = 1,
+  GUM_INTERCEPTOR_TYPE_HARDWARE = 2,
+  GUM_INTERCEPTOR_TYPE_EXCEPTION = 3
+} GumInterceptorType;
+
 GUM_API GumInterceptor * gum_interceptor_obtain (void);
 
 GUM_API GumAttachReturn gum_interceptor_attach (GumInterceptor * self,
@@ -55,6 +63,14 @@ GUM_API GumAttachReturn gum_interceptor_attach (GumInterceptor * self,
     gpointer listener_function_data, GumAttachFlags flags);
 GUM_API void gum_interceptor_detach (GumInterceptor * self,
     GumInvocationListener * listener);
+
+GUM_API GumAttachReturn gum_interceptor_attach_hardware (GumInterceptor * self,
+    gpointer function_address, GumInvocationListener * listener,
+    gpointer listener_function_data, GumAttachFlags flags);
+
+GUM_API GumAttachReturn gum_interceptor_attach_exception (GumInterceptor * self,
+    gpointer function_address, GumInvocationListener * listener,
+    gpointer listener_function_data, GumAttachFlags flags);
 
 GUM_API GumReplaceReturn gum_interceptor_replace (GumInterceptor * self,
     gpointer function_address, gpointer replacement_function,
